@@ -1,93 +1,116 @@
 (function () {
-  const TILE_LAYERS = {
-    std: {
-      url: "https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png",
-      options: { maxZoom: 18, minZoom: 5, attribution: '地図: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>' },
-    },
-    pale: {
-      url: "https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png",
-      options: { maxZoom: 18, minZoom: 5, attribution: '地図: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>' },
-    },
-    photo: {
-      url: "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg",
-      options: { maxZoom: 18, minZoom: 5, attribution: '航空写真: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>' },
-    },
-  };
+  const svgNS = "http://www.w3.org/2000/svg";
+  const svg = document.getElementById("map-svg");
+  svg.setAttribute("viewBox", `0 0 ${JAPAN_MAP.svgW} ${JAPAN_MAP.svgH}`);
 
-  const map = L.map("map", { zoomControl: true }).setView([37.2, 137.5], 5);
-
-  let currentTileLayer = L.tileLayer(TILE_LAYERS.std.url, TILE_LAYERS.std.options).addTo(map);
-
-  function switchLayer(key) {
-    map.removeLayer(currentTileLayer);
-    currentTileLayer = L.tileLayer(TILE_LAYERS[key].url, TILE_LAYERS[key].options).addTo(map);
-    document.querySelectorAll(".layer-btn").forEach((btn) => {
-      btn.classList.toggle("is-active", btn.dataset.layer === key);
-    });
+  function el(tag, attrs) {
+    const node = document.createElementNS(svgNS, tag);
+    for (const [k, v] of Object.entries(attrs || {})) node.setAttribute(k, v);
+    return node;
   }
 
-  document.getElementById("layer-switch").addEventListener("click", (e) => {
-    const btn = e.target.closest(".layer-btn");
-    if (!btn) return;
-    switchLayer(btn.dataset.layer);
-  });
+  // --- defs: soft gradient + shadow for a less flat, more "realistic" land look ---
+  const defs = el("defs", {});
+  const gradient = el("linearGradient", { id: "landGradient", x1: "0%", y1: "0%", x2: "20%", y2: "100%" });
+  gradient.appendChild(el("stop", { offset: "0%", "stop-color": "#9dbb92" }));
+  gradient.appendChild(el("stop", { offset: "55%", "stop-color": "#8fae8a" }));
+  gradient.appendChild(el("stop", { offset: "100%", "stop-color": "#7fa07c" }));
+  defs.appendChild(gradient);
+
+  const shadow = el("filter", { id: "landShadow", x: "-20%", y: "-20%", width: "140%", height: "140%" });
+  shadow.appendChild(el("feDropShadow", { dx: "0", dy: "1.5", stdDeviation: "2.5", "flood-color": "#000", "flood-opacity": "0.22" }));
+  defs.appendChild(shadow);
+
+  const texture = el("filter", { id: "landTexture", x: "-5%", y: "-5%", width: "110%", height: "110%" });
+  texture.appendChild(el("feTurbulence", { type: "fractalNoise", baseFrequency: "0.9", numOctaves: "2", result: "noise" }));
+  texture.appendChild(el("feColorMatrix", { in: "noise", type: "matrix", values: "0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0" }));
+  texture.appendChild(el("feComposite", { in2: "SourceGraphic", operator: "in" }));
+  defs.appendChild(texture);
+  svg.appendChild(defs);
+
+  // --- base landmass ---
+  const landGroup = el("g", { filter: "url(#landShadow)" });
+  landGroup.appendChild(el("path", { class: "land", d: JAPAN_MAP.path, fill: "url(#landGradient)", "fill-rule": "evenodd" }));
+  const noiseOverlay = el("path", { d: JAPAN_MAP.path, fill: "#1f2a24", filter: "url(#landTexture)", "fill-rule": "evenodd", "pointer-events": "none" });
+  landGroup.appendChild(noiseOverlay);
+  svg.appendChild(landGroup);
+
+  const pinLayer = el("g", { id: "pin-layer" });
+  const leaderLayer = el("g", { id: "leader-layer" });
+  const labelLayer = el("g", { id: "label-layer" });
+  svg.appendChild(leaderLayer);
+  svg.appendChild(pinLayer);
+  svg.appendChild(labelLayer);
+
+  // hidden text node used purely for width measurement via getComputedTextLength
+  const measureText = el("text", { x: -9999, y: -9999, "font-size": "12", "font-weight": "700" });
+  measureText.setAttribute("font-family", 'inherit');
+  svg.appendChild(measureText);
+
+  function textWidth(str, fontSize, weight) {
+    measureText.setAttribute("font-size", fontSize);
+    measureText.setAttribute("font-weight", weight || "400");
+    measureText.textContent = str;
+    return measureText.getComputedTextLength();
+  }
+
+  function wrapLines(str, maxWidth, fontSize, weight, maxLines) {
+    const lines = [];
+    let current = "";
+    for (const ch of str) {
+      const test = current + ch;
+      if (textWidth(test, fontSize, weight) > maxWidth && current) {
+        lines.push(current);
+        current = ch;
+        if (lines.length === maxLines) break;
+      } else {
+        current = test;
+      }
+    }
+    if (lines.length < maxLines && current) lines.push(current);
+    if (lines.length === maxLines) {
+      // ensure last line fits, truncate with ellipsis if the source text was cut off mid-way
+      const consumed = lines.join("").length;
+      if (consumed < str.length) {
+        let last = lines[maxLines - 1];
+        while (last.length > 0 && textWidth(last + "…", fontSize, weight) > maxWidth) {
+          last = last.slice(0, -1);
+        }
+        lines[maxLines - 1] = last + "…";
+      }
+    }
+    return lines;
+  }
 
   function gmapUrl(office) {
     const q = encodeURIComponent(`${office.postal} ${office.address}`);
     return `https://www.google.com/maps/search/?api=1&query=${q}`;
   }
 
-  function popupHtml(office) {
-    const telHtml = office.tel.length
-      ? office.tel
-          .map(
-            (t) =>
-              `<div class="popup-tel">${t.label ? t.label + "：" : ""}<a href="tel:${t.number.replace(/-/g, "")}">${t.number}</a></div>`
-          )
-          .join("")
-      : "";
-    return `
-      <div class="popup-title">${office.name}</div>
-      <div class="popup-address">${office.postal}<br>${office.address}</div>
-      ${telHtml}
-      <a class="popup-gmap" href="${gmapUrl(office)}" target="_blank" rel="noopener">Googleマップで見る</a>
-    `;
-  }
-
-  const markers = {};
-
+  // --- pins ---
+  const pins = {};
   OFFICES.forEach((office) => {
+    const p = projectLatLng(office.lat, office.lng);
     const color = GROUPS[office.group].color;
-    const marker = L.circleMarker([office.lat, office.lng], {
-      radius: 8,
-      color: "#fff",
-      weight: 2,
-      fillColor: color,
-      fillOpacity: 0.95,
-    }).addTo(map);
-    marker.bindPopup(popupHtml(office));
-    marker.on("click", () => selectOffice(office.id, { pan: false }));
-    markers[office.id] = marker;
+    const pin = el("circle", {
+      class: "office-pin",
+      cx: p.x.toFixed(1),
+      cy: p.y.toFixed(1),
+      r: 5,
+      fill: color,
+    });
+    pin.addEventListener("click", () => selectOffice(office.id));
+    pinLayer.appendChild(pin);
+    pins[office.id] = { pin, pt: p };
   });
 
-  // --- leader-line labels -------------------------------------------------
-  // Every pin gets a short name label connected by a line, positioned to
-  // avoid overlapping other labels/pins via a small greedy placement search.
-  const mapWrap = document.querySelector(".map-wrap");
-  const svgNS = "http://www.w3.org/2000/svg";
-  const leaderSvg = document.createElementNS(svgNS, "svg");
-  leaderSvg.setAttribute("class", "leader-svg");
-  const labelLayer = document.createElement("div");
-  labelLayer.className = "label-layer";
-  mapWrap.appendChild(leaderSvg);
-  mapWrap.appendChild(labelLayer);
-
-  const measureCtx = document.createElement("canvas").getContext("2d");
-  measureCtx.font = '600 11px "Hiragino Sans","Yu Gothic","Noto Sans JP",system-ui,sans-serif';
-  function labelBoxWidth(text) {
-    return Math.ceil(measureCtx.measureText(text).width) + 14;
-  }
-  const LABEL_HEIGHT = 20;
+  // --- leader-line label layout (greedy 8-direction / growing-length collision search) ---
+  const NAME_SIZE = 12;
+  const ADDR_SIZE = 9.5;
+  const LINE_GAP = 3;
+  const BOX_PAD_X = 8;
+  const BOX_PAD_Y = 6;
+  const MAX_LABEL_WIDTH = 168;
 
   const LABEL_DIRS = [
     { name: "E", dx: 1, dy: 0 },
@@ -99,7 +122,7 @@
     { name: "SW", dx: -0.82, dy: 0.57 },
     { name: "W", dx: -1, dy: 0 },
   ];
-  const LABEL_LENGTHS = [26, 42, 60, 82, 108, 140];
+  const LABEL_LENGTHS = [42, 64, 90, 120, 155, 195];
 
   function boxForDirection(dir, ep, w, h) {
     switch (dir.name) {
@@ -113,7 +136,7 @@
       case "S": return { x1: ep.x - w / 2, y1: ep.y, x2: ep.x + w / 2, y2: ep.y + h };
     }
   }
-  function boxesOverlap(a, b, margin = 4) {
+  function boxesOverlap(a, b, margin = 5) {
     return !(a.x2 + margin < b.x1 || a.x1 - margin > b.x2 || a.y2 + margin < b.y1 || a.y1 - margin > b.y2);
   }
   function overlapArea(a, b) {
@@ -122,108 +145,6 @@
     return ix * iy;
   }
 
-  let layoutRAF = null;
-  function scheduleLayout() {
-    if (layoutRAF) return;
-    layoutRAF = requestAnimationFrame(() => {
-      layoutRAF = null;
-      layoutLabels();
-    });
-  }
-
-  function layoutLabels() {
-    const visible = OFFICES.filter(matchesFilters);
-    const pins = visible.map((office) => {
-      const p = map.latLngToContainerPoint([office.lat, office.lng]);
-      return { office, pt: p, box: { x1: p.x - 7, y1: p.y - 7, x2: p.x + 7, y2: p.y + 7 } };
-    });
-    const placed = pins.map((p) => p.box);
-    const results = [];
-
-    pins.forEach((pin) => {
-      const text = pin.office.shortName || pin.office.name;
-      const w = labelBoxWidth(text);
-      const h = LABEL_HEIGHT;
-      let chosen = null;
-      outer:
-      for (const len of LABEL_LENGTHS) {
-        for (const dir of LABEL_DIRS) {
-          const ep = { x: pin.pt.x + dir.dx * len, y: pin.pt.y + dir.dy * len };
-          const box = boxForDirection(dir, ep, w, h);
-          if (!placed.some((ob) => boxesOverlap(box, ob))) {
-            chosen = { dir, ep, box };
-            break outer;
-          }
-        }
-      }
-      if (!chosen) {
-        const len = LABEL_LENGTHS[LABEL_LENGTHS.length - 1];
-        let best = null;
-        let bestScore = Infinity;
-        for (const dir of LABEL_DIRS) {
-          const ep = { x: pin.pt.x + dir.dx * len, y: pin.pt.y + dir.dy * len };
-          const box = boxForDirection(dir, ep, w, h);
-          const score = placed.reduce((s, ob) => s + overlapArea(box, ob), 0);
-          if (score < bestScore) {
-            bestScore = score;
-            best = { dir, ep, box };
-          }
-        }
-        chosen = best;
-      }
-      placed.push(chosen.box);
-      results.push({ office: pin.office, pin: pin.pt, text, ...chosen });
-    });
-
-    renderLabels(results);
-  }
-
-  function renderLabels(results) {
-    leaderSvg.innerHTML = "";
-    labelLayer.innerHTML = "";
-
-    results.forEach(({ office, pin, ep, box, dir, text }) => {
-      const color = GROUPS[office.group].color;
-
-      const line = document.createElementNS(svgNS, "line");
-      line.setAttribute("x1", pin.x);
-      line.setAttribute("y1", pin.y);
-      line.setAttribute("x2", ep.x);
-      line.setAttribute("y2", ep.y);
-      line.setAttribute("stroke", color);
-      line.setAttribute("stroke-width", "1.4");
-      line.setAttribute("opacity", "0.8");
-      leaderSvg.appendChild(line);
-
-      const el = document.createElement("div");
-      el.className = "office-label" + (office.id === selectedId ? " is-selected" : "");
-      el.style.left = box.x1 + "px";
-      el.style.top = box.y1 + "px";
-      el.style.borderColor = color;
-      el.textContent = text;
-      el.title = office.name;
-      el.addEventListener("click", () => selectOffice(office.id, { pan: false }));
-      labelLayer.appendChild(el);
-    });
-  }
-
-  map.on("move zoom resize", scheduleLayout);
-  window.addEventListener("resize", () => {
-    map.invalidateSize();
-    scheduleLayout();
-  });
-
-  // legend
-  const legendEl = document.getElementById("legend");
-  legendEl.innerHTML = Object.entries(GROUPS)
-    .map(
-      ([key, g]) =>
-        `<div class="legend-row"><span class="dot" style="background:${g.color}"></span>${g.label}</div>`
-    )
-    .join("");
-
-  // sidebar list
-  const listEl = document.getElementById("office-list");
   let activeFilter = "all";
   let searchTerm = "";
   let selectedId = null;
@@ -238,18 +159,144 @@
     return filterOk && searchOk;
   }
 
+  function layoutLabels() {
+    const visible = OFFICES.filter(matchesFilters);
+    const prepared = visible.map((office) => {
+      const nameLines = [office.shortName || office.name];
+      const addrLines = wrapLines(office.address, MAX_LABEL_WIDTH, ADDR_SIZE, "400", 2);
+      const allLineWidths = [
+        textWidth(nameLines[0], NAME_SIZE, "700"),
+        ...addrLines.map((l) => textWidth(l, ADDR_SIZE, "400")),
+      ];
+      const w = Math.min(MAX_LABEL_WIDTH, Math.max(...allLineWidths)) + BOX_PAD_X * 2;
+      const h = NAME_SIZE + LINE_GAP + addrLines.length * (ADDR_SIZE + LINE_GAP) + BOX_PAD_Y * 2 - LINE_GAP;
+      return { office, nameLines, addrLines, w, h, pt: pins[office.id].pt };
+    });
+
+    const placed = prepared.map((p) => ({
+      x1: p.pt.x - 7, y1: p.pt.y - 7, x2: p.pt.x + 7, y2: p.pt.y + 7,
+    }));
+    const results = [];
+
+    prepared.forEach((item) => {
+      let chosen = null;
+      outer:
+      for (const len of LABEL_LENGTHS) {
+        for (const dir of LABEL_DIRS) {
+          const ep = { x: item.pt.x + dir.dx * len, y: item.pt.y + dir.dy * len };
+          const box = boxForDirection(dir, ep, item.w, item.h);
+          if (
+            box.x1 > 4 && box.y1 > 4 && box.x2 < JAPAN_MAP.svgW - 4 && box.y2 < JAPAN_MAP.svgH - 4 &&
+            !placed.some((ob) => boxesOverlap(box, ob))
+          ) {
+            chosen = { dir, ep, box };
+            break outer;
+          }
+        }
+      }
+      if (!chosen) {
+        const len = LABEL_LENGTHS[LABEL_LENGTHS.length - 1];
+        let best = null;
+        let bestScore = Infinity;
+        for (const dir of LABEL_DIRS) {
+          const ep = { x: item.pt.x + dir.dx * len, y: item.pt.y + dir.dy * len };
+          const box = boxForDirection(dir, ep, item.w, item.h);
+          const score = placed.reduce((s, ob) => s + overlapArea(box, ob), 0);
+          if (score < bestScore) {
+            bestScore = score;
+            best = { dir, ep, box };
+          }
+        }
+        chosen = best;
+      }
+      placed.push(chosen.box);
+      results.push({ ...item, ...chosen });
+    });
+
+    renderLabels(results);
+  }
+
+  function renderLabels(results) {
+    leaderLayer.innerHTML = "";
+    labelLayer.innerHTML = "";
+
+    results.forEach(({ office, pt, ep, box, nameLines, addrLines }) => {
+      const color = GROUPS[office.group].color;
+      const isSelected = office.id === selectedId;
+
+      const line = el("line", {
+        class: "leader-line",
+        x1: pt.x.toFixed(1),
+        y1: pt.y.toFixed(1),
+        x2: ep.x.toFixed(1),
+        y2: ep.y.toFixed(1),
+        stroke: color,
+      });
+      leaderLayer.appendChild(line);
+
+      const group = el("g", { class: "office-label", "data-id": office.id });
+      const rect = el("rect", {
+        class: "office-label-box" + (isSelected ? " is-selected" : ""),
+        x: box.x1.toFixed(1),
+        y: box.y1.toFixed(1),
+        width: (box.x2 - box.x1).toFixed(1),
+        height: (box.y2 - box.y1).toFixed(1),
+        rx: 4,
+        stroke: color,
+      });
+      group.appendChild(rect);
+
+      let ty = box.y1 + BOX_PAD_Y + NAME_SIZE - 2;
+      const tx = box.x1 + BOX_PAD_X;
+      const nameEl = el("text", { class: "office-label-name", x: tx.toFixed(1), y: ty.toFixed(1) });
+      nameEl.textContent = nameLines[0];
+      group.appendChild(nameEl);
+
+      addrLines.forEach((line2) => {
+        ty += ADDR_SIZE + LINE_GAP;
+        const addrEl = el("text", { class: "office-label-address", x: tx.toFixed(1), y: ty.toFixed(1) });
+        addrEl.textContent = line2;
+        group.appendChild(addrEl);
+      });
+
+      group.addEventListener("click", () => selectOffice(office.id));
+      labelLayer.appendChild(group);
+    });
+  }
+
+  // --- legend ---
+  const legendEl = document.getElementById("legend");
+  legendEl.innerHTML = Object.entries(GROUPS)
+    .map(([key, g]) => `<div class="legend-row"><span class="dot" style="background:${g.color}"></span>${g.label}</div>`)
+    .join("");
+
+  // --- sidebar ---
+  const listEl = document.getElementById("office-list");
+
+  function telHtml(office) {
+    if (!office.tel.length) return "";
+    return office.tel
+      .map(
+        (t) =>
+          `<div class="tel-row">${t.label ? t.label + "：" : ""}<a href="tel:${t.number.replace(/-/g, "")}">${t.number}</a></div>`
+      )
+      .join("");
+  }
+
   function renderList() {
     const visible = OFFICES.filter(matchesFilters);
-    Object.entries(markers).forEach(([id, marker]) => {
+
+    Object.entries(pins).forEach(([id, { pin }]) => {
       const office = OFFICES.find((o) => o.id === id);
       const show = matchesFilters(office);
-      const el = marker.getElement && marker.getElement();
-      marker.setStyle({ opacity: show ? 1 : 0, fillOpacity: show ? 0.95 : 0 });
-      if (marker._path) marker._path.style.pointerEvents = show ? "auto" : "none";
+      pin.style.display = show ? "" : "none";
+      pin.classList.toggle("is-selected", id === selectedId);
+      pin.setAttribute("r", id === selectedId ? 7 : 5);
     });
 
     if (!visible.length) {
       listEl.innerHTML = `<li class="office-card-empty">該当する拠点がありません</li>`;
+      layoutLabels();
       return;
     }
 
@@ -260,27 +307,26 @@
           <li class="office-card${office.id === selectedId ? " is-selected" : ""}" data-id="${office.id}">
             <div class="office-card-title"><span class="dot" style="background:${color}"></span>${office.name}</div>
             <p class="office-card-address">${office.postal} ${office.address}</p>
+            <div class="office-card-detail">
+              ${telHtml(office)}
+              <a class="gmap-link" href="${gmapUrl(office)}" target="_blank" rel="noopener">Googleマップで見る</a>
+            </div>
           </li>
         `;
       })
       .join("");
 
-    scheduleLayout();
+    layoutLabels();
   }
 
-  function selectOffice(id, { pan = true } = {}) {
-    selectedId = id;
-    const office = OFFICES.find((o) => o.id === id);
-    if (pan) {
-      map.setView([office.lat, office.lng], 12, { animate: true });
-    }
-    markers[id].openPopup();
+  function selectOffice(id) {
+    selectedId = selectedId === id ? null : id;
     renderList();
   }
 
   listEl.addEventListener("click", (e) => {
     const card = e.target.closest(".office-card");
-    if (!card) return;
+    if (!card || e.target.closest("a")) return;
     selectOffice(card.dataset.id);
   });
 

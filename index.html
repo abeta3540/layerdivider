@@ -4,13 +4,12 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>サン・アース 拠点マップ</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header class="app-header">
     <h1>サン・アース株式会社 拠点マップ</h1>
-    <p class="app-subtitle">本社・支店・関連施設・販売代理店の所在地をリアル調の日本地図で確認できます</p>
+    <p class="app-subtitle">本社・支店・関連施設・販売代理店の所在地を日本地図で確認できます</p>
   </header>
 
   <div class="app-body">
@@ -30,22 +29,20 @@
     </aside>
 
     <main class="map-wrap">
-      <div id="map"></div>
-      <div class="map-controls" id="layer-switch">
-        <button class="layer-btn is-active" data-layer="std">標準地図</button>
-        <button class="layer-btn" data-layer="pale">淡色地図</button>
-        <button class="layer-btn" data-layer="photo">航空写真</button>
+      <div class="map-scroll">
+        <svg id="map-svg" xmlns="http://www.w3.org/2000/svg"></svg>
       </div>
       <div class="legend" id="legend"></div>
-      <p class="map-note">※ 地図上のピンは住所から推定したおおよその位置です。正確な地点は各拠点の「Googleマップで見る」をご利用ください。</p>
+      <p class="map-note">※ ピンの位置は住所から推定したおおよその位置です。正確な地点は拠点一覧の「Googleマップで見る」をご利用ください。</p>
     </main>
   </div>
 
   <footer class="app-footer">
     出典: <a href="https://www.sun-earth.jp/about-us/service-office/" target="_blank" rel="noopener">サン・アース株式会社 サービス拠点案内</a>
+    ／ 地図データ: <a href="https://github.com/SaitoTsutomu/japanmap" target="_blank" rel="noopener">japanmap</a>(Apache-2.0)を加工
   </footer>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="map-data.js"></script>
   <script src="data.js"></script>
   <script src="app.js"></script>
 </body>

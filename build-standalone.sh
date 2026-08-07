@@ -14,6 +14,8 @@ with open("index.html", encoding="utf-8") as f:
     html = f.read()
 with open("style.css", encoding="utf-8") as f:
     css = f.read()
+with open("map-data.js", encoding="utf-8") as f:
+    map_data_js = f.read()
 with open("data.js", encoding="utf-8") as f:
     data_js = f.read()
 with open("app.js", encoding="utf-8") as f:
@@ -24,8 +26,8 @@ html = html.replace(
     f"<style>\n{css}</style>",
 )
 html = html.replace(
-    '  <script src="data.js"></script>\n  <script src="app.js"></script>',
-    f"  <script>\n{data_js}\n{app_js}  </script>",
+    '  <script src="map-data.js"></script>\n  <script src="data.js"></script>\n  <script src="app.js"></script>',
+    f"  <script>\n{map_data_js}\n{data_js}\n{app_js}  </script>",
 )
 
 with open(out_path, "w", encoding="utf-8") as f:
