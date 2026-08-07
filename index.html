@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>サン・アース 拠点マップ</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>サン・アース株式会社 拠点マップ</h1>
+    <p class="app-subtitle">本社・支店・関連施設・販売代理店の所在地をリアル調の日本地図で確認できます</p>
+  </header>
+
+  <div class="app-body">
+    <aside class="sidebar">
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="拠点名・都道府県で検索" autocomplete="off" />
+      </div>
+
+      <div class="filter-chips" id="filter-chips">
+        <button class="chip is-active" data-filter="all">すべて</button>
+        <button class="chip" data-filter="branch">本社・支店</button>
+        <button class="chip" data-filter="facility">関連施設</button>
+        <button class="chip" data-filter="dealer">販売店・代理店</button>
+      </div>
+
+      <ul class="office-list" id="office-list"></ul>
+    </aside>
+
+    <main class="map-wrap">
+      <div id="map"></div>
+      <div class="map-controls" id="layer-switch">
+        <button class="layer-btn is-active" data-layer="std">標準地図</button>
+        <button class="layer-btn" data-layer="pale">淡色地図</button>
+        <button class="layer-btn" data-layer="photo">航空写真</button>
+      </div>
+      <div class="legend" id="legend"></div>
+      <p class="map-note">※ 地図上のピンは住所から推定したおおよその位置です。正確な地点は各拠点の「Googleマップで見る」をご利用ください。</p>
+    </main>
+  </div>
+
+  <footer class="app-footer">
+    出典: <a href="https://www.sun-earth.jp/about-us/service-office/" target="_blank" rel="noopener">サン・アース株式会社 サービス拠点案内</a>
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

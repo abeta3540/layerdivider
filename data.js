@@ -1,0 +1,128 @@
+/**
+ * サン・アース株式会社 拠点データ
+ * 出典: https://www.sun-earth.jp/about-us/service-office/
+ *
+ * lat/lng は住所（市区町村〜字レベル）から推定したおおよその座標です。
+ * 正確な位置を確認したい場合は各拠点の「Googleマップで見る」リンクを使ってください。
+ */
+const OFFICES = [
+  {
+    id: "hq-kanto",
+    group: "branch",
+    name: "本社・関東支店",
+    postal: "〒140-0013",
+    address: "東京都品川区南大井6-26-2 大森ベルポートB館 3階",
+    tel: [
+      { label: "本社", number: "03-6410-8623" },
+      { label: "関東支店", number: "03-6410-8624" },
+    ],
+    lat: 35.5836,
+    lng: 139.7395,
+  },
+  {
+    id: "hokkaido",
+    group: "branch",
+    name: "北海道支店",
+    postal: "〒003-0829",
+    address: "北海道札幌市白石区菊水元町9-2-3-11",
+    tel: [{ number: "011-799-4350" }],
+    lat: 43.0553,
+    lng: 141.3898,
+  },
+  {
+    id: "tohoku",
+    group: "branch",
+    name: "東北支店",
+    postal: "〒989-2204",
+    address: "宮城県亘理郡山元町鷲足字山崎4-3",
+    tel: [{ number: "0223-23-0220" }],
+    lat: 37.9553,
+    lng: 140.8503,
+  },
+  {
+    id: "kansai",
+    group: "branch",
+    name: "関西支店",
+    postal: "〒520-3251",
+    address: "滋賀県湖南市朝国142-11",
+    tel: [{ number: "0748-69-6370" }],
+    lat: 34.975,
+    lng: 136.045,
+  },
+  {
+    id: "kyushu-office",
+    group: "branch",
+    name: "九州支店 事務所",
+    postal: "〒841-0056",
+    address: "佐賀県鳥栖市蔵上3丁目105 オフィスパレア鳥栖Ⅰ-1号室",
+    tel: [{ number: "0942-50-6808" }],
+    lat: 33.383,
+    lng: 130.515,
+  },
+  {
+    id: "kyushu-parts",
+    group: "facility",
+    name: "九州支店 部品庫",
+    postal: "〒841-0061",
+    address: "佐賀県鳥栖市轟木町字三本松1700-1 大和物流株式会社 鳥栖物流センター",
+    tel: [],
+    lat: 33.375,
+    lng: 130.525,
+  },
+  {
+    id: "kisarazu",
+    group: "facility",
+    name: "木更津マシンパーク",
+    postal: "〒292-0204",
+    address: "千葉県木更津市茅野19-1",
+    tel: [{ number: "0438-53-2230" }],
+    lat: 35.385,
+    lng: 139.955,
+  },
+  {
+    id: "ssl",
+    group: "facility",
+    name: "サナース ソーティング ラボ（SSL）",
+    postal: "〒293-0011",
+    address: "千葉県富津市新富79-1",
+    tel: [],
+    lat: 35.355,
+    lng: 139.885,
+  },
+  {
+    id: "chugoku-axia",
+    group: "dealer",
+    name: "中国地方 販売店　株式会社アクシア",
+    postal: "〒710-0034",
+    address: "岡山県倉敷市粒江20-50",
+    tel: [{ number: "086-420-0005" }],
+    lat: 34.495,
+    lng: 133.785,
+  },
+  {
+    id: "shikoku-ecoplanning",
+    group: "dealer",
+    name: "四国地方 販売店　株式会社エコプランニングパートナー",
+    postal: "〒760-0080",
+    address: "香川県高松市木太町1688-1",
+    tel: [{ number: "087-802-8955" }],
+    lat: 34.345,
+    lng: 134.085,
+  },
+  {
+    id: "shikoku-kochi-ringyo",
+    group: "dealer",
+    name: "四国地方 林業機械販売店　株式会社高知林業",
+    postal: "〒780-8040",
+    address: "高知県高知市神田968-1",
+    tel: [{ number: "088-833-2281" }],
+    lat: 33.585,
+    lng: 133.545,
+  },
+];
+
+const GROUPS = {
+  branch: { label: "本社・支店", color: "#d64545" },
+  facility: { label: "関連施設（部品庫・マシンパーク等）", color: "#3b7dd8" },
+  dealer: { label: "販売店・代理店", color: "#3fa15e" },
+};
