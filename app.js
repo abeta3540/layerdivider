@@ -96,7 +96,7 @@
       class: "office-pin",
       cx: p.x.toFixed(1),
       cy: p.y.toFixed(1),
-      r: 5,
+      r: 3.5,
       fill: color,
     });
     pin.addEventListener("click", () => selectOffice(office.id));
@@ -124,17 +124,18 @@
   ];
   const LABEL_LENGTHS = [42, 64, 90, 120, 155, 195];
 
-  function boxForDirection(dir, ep, w, h) {
-    switch (dir.name) {
-      case "E": return { x1: ep.x, y1: ep.y - h / 2, x2: ep.x + w, y2: ep.y + h / 2 };
-      case "W": return { x1: ep.x - w, y1: ep.y - h / 2, x2: ep.x, y2: ep.y + h / 2 };
-      case "NE": return { x1: ep.x, y1: ep.y - h, x2: ep.x + w, y2: ep.y };
-      case "SE": return { x1: ep.x, y1: ep.y, x2: ep.x + w, y2: ep.y + h };
-      case "NW": return { x1: ep.x - w, y1: ep.y - h, x2: ep.x, y2: ep.y };
-      case "SW": return { x1: ep.x - w, y1: ep.y, x2: ep.x, y2: ep.y + h };
-      case "N": return { x1: ep.x - w / 2, y1: ep.y - h, x2: ep.x + w / 2, y2: ep.y };
-      case "S": return { x1: ep.x - w / 2, y1: ep.y, x2: ep.x + w / 2, y2: ep.y + h };
-    }
+  // Generalized box placement: works for both the preset 8-direction search
+  // and arbitrary manual dx/dy hints (office.labelDir), so both paths share
+  // the same anchoring rule (box extends away from the pin along dx/dy).
+  function boxForOffset(dx, dy, ep, w, h) {
+    let x1, x2, y1, y2;
+    if (dx > 0.3) { x1 = ep.x; x2 = ep.x + w; }
+    else if (dx < -0.3) { x1 = ep.x - w; x2 = ep.x; }
+    else { x1 = ep.x - w / 2; x2 = ep.x + w / 2; }
+    if (dy > 0.3) { y1 = ep.y; y2 = ep.y + h; }
+    else if (dy < -0.3) { y1 = ep.y - h; y2 = ep.y; }
+    else { y1 = ep.y - h / 2; y2 = ep.y + h / 2; }
+    return { x1, y1, x2, y2 };
   }
   function boxesOverlap(a, b, margin = 5) {
     return !(a.x2 + margin < b.x1 || a.x1 - margin > b.x2 || a.y2 + margin < b.y1 || a.y1 - margin > b.y2);
@@ -180,17 +181,29 @@
 
     prepared.forEach((item) => {
       let chosen = null;
-      outer:
-      for (const len of LABEL_LENGTHS) {
-        for (const dir of LABEL_DIRS) {
-          const ep = { x: item.pt.x + dir.dx * len, y: item.pt.y + dir.dy * len };
-          const box = boxForDirection(dir, ep, item.w, item.h);
-          if (
-            box.x1 > 4 && box.y1 > 4 && box.x2 < JAPAN_MAP.svgW - 4 && box.y2 < JAPAN_MAP.svgH - 4 &&
-            !placed.some((ob) => boxesOverlap(box, ob))
-          ) {
-            chosen = { dir, ep, box };
-            break outer;
+
+      // A manually-tuned direction (set on a handful of offices whose pins
+      // sit too close together for the automatic search to read cleanly)
+      // takes priority over the generic collision search.
+      if (item.office.labelDir) {
+        const { dx, dy, len } = item.office.labelDir;
+        const ep = { x: item.pt.x + dx * len, y: item.pt.y + dy * len };
+        chosen = { ep, box: boxForOffset(dx, dy, ep, item.w, item.h) };
+      }
+
+      if (!chosen) {
+        outer:
+        for (const len of LABEL_LENGTHS) {
+          for (const dir of LABEL_DIRS) {
+            const ep = { x: item.pt.x + dir.dx * len, y: item.pt.y + dir.dy * len };
+            const box = boxForOffset(dir.dx, dir.dy, ep, item.w, item.h);
+            if (
+              box.x1 > 4 && box.y1 > 4 && box.x2 < JAPAN_MAP.svgW - 4 && box.y2 < JAPAN_MAP.svgH - 4 &&
+              !placed.some((ob) => boxesOverlap(box, ob))
+            ) {
+              chosen = { ep, box };
+              break outer;
+            }
           }
         }
       }
@@ -200,11 +213,11 @@
         let bestScore = Infinity;
         for (const dir of LABEL_DIRS) {
           const ep = { x: item.pt.x + dir.dx * len, y: item.pt.y + dir.dy * len };
-          const box = boxForDirection(dir, ep, item.w, item.h);
+          const box = boxForOffset(dir.dx, dir.dy, ep, item.w, item.h);
           const score = placed.reduce((s, ob) => s + overlapArea(box, ob), 0);
           if (score < bestScore) {
             bestScore = score;
-            best = { dir, ep, box };
+            best = { ep, box };
           }
         }
         chosen = best;
@@ -291,7 +304,7 @@
       const show = matchesFilters(office);
       pin.style.display = show ? "" : "none";
       pin.classList.toggle("is-selected", id === selectedId);
-      pin.setAttribute("r", id === selectedId ? 7 : 5);
+      pin.setAttribute("r", id === selectedId ? 5.5 : 3.5);
     });
 
     if (!visible.length) {

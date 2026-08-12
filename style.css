@@ -232,13 +232,13 @@ html, body {
 
 .office-pin {
   stroke: #fff;
-  stroke-width: 2;
+  stroke-width: 1.3;
   cursor: pointer;
   transition: r 0.15s ease;
 }
 
 .office-pin.is-selected {
-  stroke-width: 3;
+  stroke-width: 2;
 }
 
 .leader-line {

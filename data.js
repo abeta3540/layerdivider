@@ -19,6 +19,7 @@ const OFFICES = [
     ],
     lat: 35.5836,
     lng: 139.7395,
+    labelDir: { dx: 0, dy: -1, len: 42 },
   },
   {
     id: "hokkaido",
@@ -74,6 +75,7 @@ const OFFICES = [
     tel: [],
     lat: 33.375,
     lng: 130.525,
+    labelDir: { dx: 0.5, dy: 0.87, len: 110 },
   },
   {
     id: "kisarazu",
@@ -83,6 +85,7 @@ const OFFICES = [
     postal: "〒292-0204",
     address: "千葉県木更津市茅野19-1",
     tel: [{ number: "0438-53-2230" }],
+    labelDir: { dx: 0.82, dy: 0.57, len: 42 },
     lat: 35.385,
     lng: 139.955,
   },
@@ -96,6 +99,7 @@ const OFFICES = [
     tel: [],
     lat: 35.355,
     lng: 139.885,
+    labelDir: { dx: 1, dy: 0, len: 42 },
   },
   {
     id: "chugoku-axia",
